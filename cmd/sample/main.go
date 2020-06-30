@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/minami14/tengor/nn"
 	"log"
+	
+	"github.com/minami14/tengor/nn"
 )
 
 func main() {
