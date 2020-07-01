@@ -6,10 +6,11 @@ import (
 	"compress/gzip"
 	"encoding/binary"
 	"fmt"
-	"github.com/minami14/tengor/nn"
 	"io"
 	"net/http"
 	"os"
+
+	"github.com/minami14/tengor/nn"
 )
 
 const (
