@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-
+  
 	"github.com/minami14/tengor/dataset/mnist"
 	"github.com/minami14/tengor/nn"
 )
