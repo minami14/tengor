@@ -26,7 +26,7 @@ func (c *CrossEntropyError) Forward(y, t []*Tensor) float64 {
 func (c *CrossEntropyError) Backward() []*Tensor {
 	d := make([]*Tensor, len(c.y))
 	for i := 0; i < len(c.y); i++ {
-		d[i] = c.y[i].SubTensor(c.t[i])
+		d[i] = c.t[i].DivTensor(c.y[i]).MulBroadCast(-1)
 	}
 	return d
 }

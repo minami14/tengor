@@ -78,6 +78,7 @@ func (s *Sigmoid) Backward(douts []*Tensor) []*Tensor {
 
 type Softmax struct {
 	BaseLayer
+	outputs []*Tensor
 }
 
 func (s *Softmax) Init(inputShape Shape) error {
@@ -100,11 +101,15 @@ func (s *Softmax) Forward(inputs []*Tensor) []*Tensor {
 			return f / sum
 		})
 	}
+	s.outputs = outputs
 
 	return outputs
 }
 
 func (s *Softmax) Backward(douts []*Tensor) []*Tensor {
+	for i, output := range s.outputs {
+		douts[i] = douts[i].MulTensor(output).AddTensor(output)
+	}
 	return douts
 }
 
