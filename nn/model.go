@@ -8,7 +8,7 @@ import (
 
 type Model interface {
 	Layers() []Layer
-	Fit(x, y []*Tensor)
+	Fit(x, y []*Tensor, epochs, batchSize int)
 	Predict([]*Tensor) []*Tensor
 	Build(Loss) error
 }
@@ -73,13 +73,13 @@ func (s *Sequential) Update(x, t []*Tensor) {
 func (s *Sequential) Predict(inputs []*Tensor) []*Tensor {
 	x := inputs
 	for _, layer := range s.layers {
-		x = layer.Forward(x)
+		x = layer.Call(x)
 	}
 	return x
 }
 
 func (s *Sequential) Loss(y, t []*Tensor) float64 {
-	return s.loss.Forward(y, t)
+	return s.loss.Call(y, t)
 }
 
 func (s *Sequential) Accuracy(y, t []*Tensor) float64 {

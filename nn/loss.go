@@ -1,6 +1,7 @@
 package nn
 
 type Loss interface {
+	Call(y, t []*Tensor) float64
 	Forward(y, t []*Tensor) float64
 	Backward() []*Tensor
 }
@@ -8,6 +9,15 @@ type Loss interface {
 type CrossEntropyError struct {
 	y []*Tensor
 	t []*Tensor
+}
+
+func (c *CrossEntropyError) Call(y, t []*Tensor) float64 {
+	const delta = 1e-7
+	sum := 0.0
+	for i := 0; i < len(t); i++ {
+		sum += - y[i].AddBroadCast(delta).Log().MulTensor(t[i]).Sum()
+	}
+	return sum / float64(len(t))
 }
 
 func (c *CrossEntropyError) Forward(y, t []*Tensor) float64 {
