@@ -7,6 +7,7 @@ import (
 
 type ReLU struct {
 	BaseLayer
+	mask [][]bool
 }
 
 func (r *ReLU) Init(inputShape Shape) error {
@@ -15,14 +16,39 @@ func (r *ReLU) Init(inputShape Shape) error {
 	return nil
 }
 
-func (r *ReLU) Call(input *Tensor) *Tensor {
-	return input.BroadCast(func(f float64) float64 {
-		return math.Max(f, 0)
-	})
+func (r *ReLU) Forward(inputs []*Tensor) []*Tensor {
+	outputs := make([]*Tensor, len(inputs))
+	r.mask = make([][]bool, len(inputs))
+	for i, input := range inputs {
+		r.mask[i] = make([]bool, input.shape.Elements())
+		output := NewTensor(input.shape)
+		for j := 0; j < input.shape.Elements(); j++ {
+			x := math.Max(input.rawData[j], 0)
+			r.mask[i][j] = x <= 0
+			output.rawData[j] = x
+		}
+		outputs[i] = output
+	}
+
+	return outputs
+}
+
+func (r *ReLU) Backward(douts []*Tensor) []*Tensor {
+	d := make([]*Tensor, len(douts))
+	for i, dout := range douts {
+		d[i] = dout.Clone()
+		for j := 0; j < d[i].shape.Elements(); j++ {
+			if r.mask[i][j] {
+				d[i].rawData[j] = 0
+			}
+		}
+	}
+	return d
 }
 
 type Sigmoid struct {
 	BaseLayer
+	outputs []*Tensor
 }
 
 func (s *Sigmoid) Init(inputShape Shape) error {
@@ -31,10 +57,23 @@ func (s *Sigmoid) Init(inputShape Shape) error {
 	return nil
 }
 
-func (s *Sigmoid) Call(input *Tensor) *Tensor {
-	return input.BroadCast(func(f float64) float64 {
-		return 1 / (1 + math.Exp(-f))
-	})
+func (s *Sigmoid) Forward(inputs []*Tensor) []*Tensor {
+	s.outputs = make([]*Tensor, len(inputs))
+	for i, input := range inputs {
+		s.outputs[i] = input.BroadCast(func(f float64) float64 {
+			return 1 / (1 + math.Exp(-f))
+		})
+	}
+
+	return s.outputs
+}
+
+func (s *Sigmoid) Backward(douts []*Tensor) []*Tensor {
+	d := make([]*Tensor, len(douts))
+	for i, dout := range douts {
+		d[i] = s.outputs[i].MulBroadCast(-1).AddBroadCast(1).MulTensor(s.outputs[i]).MulTensor(dout)
+	}
+	return d
 }
 
 type Softmax struct {
@@ -51,14 +90,22 @@ func (s *Softmax) Init(inputShape Shape) error {
 	return nil
 }
 
-func (s *Softmax) Call(input *Tensor) *Tensor {
-	exp := input.Exp()
-	sum := exp.Sum()
-	output := exp.BroadCast(func(f float64) float64 {
-		return f / sum
-	})
+func (s *Softmax) Forward(inputs []*Tensor) []*Tensor {
+	outputs := make([]*Tensor, len(inputs))
+	for i, input := range inputs {
+		max := input.Max()
+		exp := input.SubBroadCast(max).Exp()
+		sum := exp.Sum()
+		outputs[i] = exp.BroadCast(func(f float64) float64 {
+			return f / sum
+		})
+	}
 
-	return output
+	return outputs
+}
+
+func (s *Softmax) Backward(douts []*Tensor) []*Tensor {
+	return douts
 }
 
 type Lambda struct {
@@ -73,6 +120,14 @@ func (l *Lambda) Init(inputShape Shape) error {
 	return nil
 }
 
-func (l *Lambda) Call(input *Tensor) *Tensor {
-	return l.Function(input)
+func (l *Lambda) Forward(inputs []*Tensor) []*Tensor {
+	outputs := make([]*Tensor, len(inputs))
+	for i, input := range inputs {
+		outputs[i] = l.Function(input)
+	}
+	return outputs
+}
+
+func (l *Lambda) Backward(douts []*Tensor) []*Tensor {
+	return douts
 }

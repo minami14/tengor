@@ -9,8 +9,10 @@ type Layer interface {
 	InputShape() Shape
 	OutputShape() Shape
 	Init(inputShape Shape) error
-	Call(input *Tensor) *Tensor
+	Forward(inputs []*Tensor) []*Tensor
+	Backward(douts []*Tensor) []*Tensor
 	Params() []*Tensor
+	Update(lr float64)
 }
 
 type BaseLayer struct {
@@ -30,6 +32,8 @@ func (b *BaseLayer) Params() []*Tensor {
 	return nil
 }
 
+func (b *BaseLayer) Update(_ float64) {}
+
 type Input struct {
 	BaseLayer
 }
@@ -40,14 +44,21 @@ func (i *Input) Init(inputShape Shape) error {
 	return nil
 }
 
-func (i *Input) Call(input *Tensor) *Tensor {
-	return input
+func (i *Input) Forward(inputs []*Tensor) []*Tensor {
+	return inputs
+}
+
+func (i *Input) Backward(douts []*Tensor) []*Tensor {
+	return douts
 }
 
 type Dense struct {
 	BaseLayer
 	weight *Tensor
 	bias   *Tensor
+	inputs []*Tensor
+	dw     []*Tensor
+	db     []*Tensor
 	Units  int
 }
 
@@ -59,19 +70,50 @@ func (d *Dense) Init(inputShape Shape) error {
 	d.inputShape = inputShape
 	d.outputShape = Shape{d.Units}
 	d.weight = NewTensor(Shape{inputShape[0], d.Units})
-	d.weight.BroadCast(func(_ float64) float64 {
+	d.weight = d.weight.BroadCast(func(_ float64) float64 {
 		return rand.Float64() * 0.01
 	})
 	d.bias = NewTensor(d.outputShape)
 	return nil
 }
 
-func (d *Dense) Call(input *Tensor) *Tensor {
-	return input.ReShape(Shape{1, input.shape[0]}).Dot(d.weight).ReShape(d.outputShape).AddTensor(d.bias)
+func (d *Dense) Forward(inputs []*Tensor) []*Tensor {
+	d.inputs = make([]*Tensor, len(inputs))
+	outputs := make([]*Tensor, len(inputs))
+	for i, input := range inputs {
+		d.inputs[i] = input
+		outputs[i] = input.ReShape(Shape{1, input.shape[0]}).Dot(d.weight).ReShape(d.outputShape).AddTensor(d.bias)
+	}
+	return outputs
+}
+
+func (d *Dense) Backward(douts []*Tensor) []*Tensor {
+	d.dw = make([]*Tensor, len(douts))
+	d.db = make([]*Tensor, len(douts))
+	dx := make([]*Tensor, len(douts))
+	for i, dout := range douts {
+		d.db[i] = dout.Clone()
+		dout = dout.ReShape(Shape{1, dout.shape[0]})
+		dx[i] = dout.Dot(d.weight.Transpose())
+		dx[i] = dx[i].ReShape(Shape{dx[i].shape[1]})
+		d.dw[i] = d.inputs[i].ReShape(Shape{1, d.inputs[i].shape[0]}).Transpose().Dot(dout)
+	}
+	return dx
 }
 
 func (d *Dense) Params() []*Tensor {
 	return []*Tensor{d.weight, d.bias}
+}
+
+func (d *Dense) Update(lr float64) {
+	dw := NewTensor(d.dw[0].shape)
+	db := NewTensor(d.db[0].shape)
+	for i := 0; i < len(d.dw); i++ {
+		dw = dw.AddTensor(d.dw[i])
+		db = db.AddTensor(d.db[i])
+	}
+	d.weight = d.weight.SubTensor(dw.MulBroadCast(lr / float64(len(d.dw))))
+	d.bias = d.bias.SubTensor(db.MulBroadCast(lr / float64(len(d.db))))
 }
 
 type Flatten struct {
@@ -84,8 +126,15 @@ func (f *Flatten) Init(inputShape Shape) error {
 	return nil
 }
 
-func (f *Flatten) Call(input *Tensor) *Tensor {
-	t := input.Clone()
-	t.shape = f.outputShape
-	return t
+func (f *Flatten) Forward(inputs []*Tensor) []*Tensor {
+	outputs := make([]*Tensor, len(inputs))
+	for i, input := range inputs {
+		outputs[i] = input.Clone()
+		outputs[i].shape = f.outputShape.Clone()
+	}
+	return outputs
+}
+
+func (f *Flatten) Backward(douts []*Tensor) []*Tensor {
+	return douts
 }

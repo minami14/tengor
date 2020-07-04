@@ -238,3 +238,39 @@ func (t *Tensor) Log() *Tensor {
 
 	return res
 }
+
+func (t *Tensor) Transpose() *Tensor {
+	if t.Rank() != 2 {
+		panic("invalid rank")
+	}
+
+	res := NewTensor(Shape{t.shape[1], t.shape[0]})
+	for i := 0; i < t.shape[0]; i++ {
+		for j := 0; j < t.shape[1]; j++ {
+			res.Set(t.Get(Shape{i, j}), Shape{j, i})
+		}
+	}
+	return res
+}
+
+func (t *Tensor) Max() float64 {
+	max := t.rawData[0]
+	for _, x := range t.rawData {
+		if x > max {
+			max = x
+		}
+	}
+	return max
+}
+
+func (t *Tensor) MaxIndex() int {
+	index := 0
+	max := -1.0
+	for i := 0; i < t.shape.Elements(); i++ {
+		if max < t.rawData[i] {
+			max = t.rawData[i]
+			index = i
+		}
+	}
+	return index
+}
