@@ -34,77 +34,62 @@ func (s *Sequential) Layers() []Layer {
 	return s.layers
 }
 
-func (s *Sequential) Fit(x, y []*Tensor, epochs, batchSize int) {
+func (s *Sequential) Fit(x, t []*Tensor, epochs, batchSize int) {
 	totalStart := time.Now()
 	for epoch := 0; epoch < epochs; epoch++ {
 		fmt.Printf("epoch %v/%v\n", epoch+1, epochs)
 		steps := len(x) / batchSize
 		start := time.Now()
 		for step := 0; step < steps; step++ {
-			fmt.Printf("\r\033[K%v/%v\t%v%%\t%.1fs", step*batchSize, steps*batchSize, 100*float64(step)/float64(steps), time.Now().Sub(start).Seconds())
 			startIndex := step * batchSize
 			endIndex := (step + 1) * batchSize
-			s.Update(x[startIndex:endIndex], y[startIndex:endIndex])
+			y := s.Predict(x[startIndex:endIndex])
+			loss := s.Loss(y, t[startIndex:endIndex])
+			acc := s.Accuracy(y, t[startIndex:endIndex])
+			fmt.Printf("\r\033[K%v/%v\t%v%%\t%.1fs\tloss: %.4f\tacc: %.4f", step*batchSize, steps*batchSize, 100*step/steps, time.Now().Sub(start).Seconds(), loss, acc)
+			s.Update(x[startIndex:endIndex], t[startIndex:endIndex])
 		}
-		loss := s.Loss(x, y)
-		fmt.Printf("\r\033[K%v/%v\t100%%\t%.1fs\tloss: %v\n", steps, steps, time.Now().Sub(start).Seconds(), loss)
+		y := s.Predict(x)
+		loss := s.Loss(y, t)
+		acc := s.Accuracy(y, t)
+		fmt.Printf("\r\033[K%v/%v\t100%%\t%.1fs\tloss: %.4f\tacc: %.4f\n", steps*batchSize, steps*batchSize, time.Now().Sub(start).Seconds(), loss, acc)
 	}
 	fmt.Printf("%.1fs\n", time.Now().Sub(totalStart).Seconds())
 }
 
-func (s *Sequential) Update(x, y []*Tensor) {
-	const h = 1e-4
-	grads := make([]*Tensor, 0)
-	params := make([]*Tensor, 0)
+func (s *Sequential) Update(x, t []*Tensor) {
 	for _, layer := range s.layers {
-		for _, param := range layer.Params() {
-			params = append(params, param)
-			grad := NewTensor(param.shape)
-			for i := range param.rawData {
-				tmp := param.rawData[i]
-				param.rawData[i] += h
-				h1 := s.Loss(x, y)
-				param.rawData[i] = tmp - h
-				h2 := s.Loss(x, y)
-				param.rawData[i] = tmp
-				grad.rawData[i] = (h1 - h2) / (2 * h)
-			}
-			grads = append(grads, grad)
-		}
+		x = layer.Forward(x)
 	}
 
-	for i, grad := range grads {
-		for j := range params[i].rawData {
-			params[i].rawData[j] -= s.LearningRate * grad.rawData[j]
-		}
+	s.loss.Forward(x, t)
+	dout := s.loss.Backward()
+	for i := len(s.layers) - 1; i >= 0; i-- {
+		dout = s.layers[i].Backward(dout)
+		s.layers[i].Update(s.LearningRate)
 	}
 }
 
 func (s *Sequential) Predict(inputs []*Tensor) []*Tensor {
-	y := make([]*Tensor, len(inputs))
-	for i, input := range inputs {
-		x := input
-		for _, layer := range s.layers {
-			x = layer.Call(x)
-		}
-		y[i] = x
+	x := inputs
+	for _, layer := range s.layers {
+		x = layer.Forward(x)
 	}
-	return y
+	return x
 }
 
-func (s *Sequential) Loss(x, t []*Tensor) float64 {
-	y := s.Predict(x)
+func (s *Sequential) Loss(y, t []*Tensor) float64 {
+	return s.loss.Forward(y, t)
+}
+
+func (s *Sequential) Accuracy(y, t []*Tensor) float64 {
 	sum := 0.0
-	for i, v := range y {
-		sum += s.loss.Call(v, t[i])
+	for i := 0; i < len(t); i++ {
+		if y[i].MaxIndex() == t[i].MaxIndex() {
+			sum++
+		}
 	}
-
-	loss := sum / float64(len(x))
-	return loss
-}
-
-func (s *Sequential) Accuracy(x, y []*Tensor) float64 {
-	return 0
+	return sum / float64(len(t))
 }
 
 func (s *Sequential) Build(loss Loss) error {
@@ -131,7 +116,7 @@ func (s *Sequential) AddLayer(layer Layer) {
 }
 
 func (s *Sequential) Summary() string {
-	res := "Layer Type\tOutput Shape\tParams\n======================================================\n"
+	res := "Layer Type\tOutput Shape\tParams\n=======================================\n"
 	sum := 0
 	for _, layer := range s.layers {
 		params := layer.Params()
