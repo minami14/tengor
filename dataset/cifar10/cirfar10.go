@@ -77,7 +77,7 @@ func read(x, y []*nn.Tensor, reader io.Reader) error {
 	return nil
 }
 
-// Load downloads and loads mnist dataset.
+// Load downloads and loads cifar10 dataset.
 func Load() (xTrain, yTrain, xTest, yTest []*nn.Tensor, err error) {
 	if _, err := os.Stat(filepath); os.IsNotExist(err) {
 		if err := download(); err != nil {
