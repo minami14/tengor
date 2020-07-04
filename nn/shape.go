@@ -7,14 +7,14 @@ func (s Shape) RawIndex(at Shape) int {
 		panic("invalid rank")
 	}
 
-	index := at[len(at)-1]
-	a := s[len(s)-1]
-	for i := len(at) - 2; i >= 0; i-- {
-		if at[i] > s[i] {
+	index := 0
+	a := 1
+	for i, x := range at {
+		if x >= s[i] {
 			panic("index out of range")
 		}
 
-		index += at[i] * a
+		index += x * a
 		a *= s[i]
 	}
 
