@@ -58,13 +58,13 @@ func (i *Input) Backward(douts []*Tensor) []*Tensor {
 }
 
 type Dense struct {
-	BaseLayer
+	Units  int
 	weight *Tensor
 	bias   *Tensor
 	inputs []*Tensor
 	dw     []*Tensor
 	db     []*Tensor
-	Units  int
+	BaseLayer
 }
 
 func (d *Dense) Init(inputShape Shape) error {
@@ -153,5 +153,52 @@ func (f *Flatten) Forward(inputs []*Tensor) []*Tensor {
 }
 
 func (f *Flatten) Backward(douts []*Tensor) []*Tensor {
+	return douts
+}
+
+type Dropout struct {
+	Rate float64
+	mask [][]bool
+	BaseLayer
+}
+
+func (d *Dropout) Init(inputShape Shape) error {
+	d.inputShape = inputShape
+	d.outputShape = inputShape
+	return nil
+}
+
+func (d *Dropout) Call(inputs []*Tensor) []*Tensor {
+	return inputs
+}
+
+func (d *Dropout) Forward(inputs []*Tensor) []*Tensor {
+	d.mask = make([][]bool, len(inputs))
+	units := inputs[0].shape.Elements()
+	active := int(float64(units) * (1 - d.Rate))
+	for i, input := range inputs {
+		mask := make([]bool, units)
+		for n := 0; n < active; {
+			index := rand.Intn(units)
+			if mask[index] {
+				continue
+			}
+			input.rawData[index] = 0
+			mask[index] = true
+			n++
+		}
+		d.mask[i] = mask
+	}
+	return inputs
+}
+
+func (d *Dropout) Backward(douts []*Tensor) []*Tensor {
+	for i, dout := range douts {
+		for j, drop := range d.mask[i] {
+			if drop {
+				dout.rawData[j] = 0
+			}
+		}
+	}
 	return douts
 }

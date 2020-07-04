@@ -153,9 +153,9 @@ func (s *Softmax) Backward(douts []*Tensor) []*Tensor {
 }
 
 type Lambda struct {
-	BaseLayer
 	Function        func(*Tensor) *Tensor
 	CalcOutputShape func(inputShape Shape) Shape
+	BaseLayer
 }
 
 func (l *Lambda) Init(inputShape Shape) error {
