@@ -16,6 +16,20 @@ func (r *ReLU) Init(inputShape Shape) error {
 	return nil
 }
 
+func (r *ReLU) Call(inputs []*Tensor) []*Tensor {
+	outputs := make([]*Tensor, len(inputs))
+	for i, input := range inputs {
+		output := NewTensor(input.shape)
+		for j := 0; j < input.shape.Elements(); j++ {
+			x := math.Max(input.rawData[j], 0)
+			output.rawData[j] = x
+		}
+		outputs[i] = output
+	}
+
+	return outputs
+}
+
 func (r *ReLU) Forward(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
 	r.mask = make([][]bool, len(inputs))
@@ -57,6 +71,17 @@ func (s *Sigmoid) Init(inputShape Shape) error {
 	return nil
 }
 
+func (s *Sigmoid) Call(inputs []*Tensor) []*Tensor {
+	outputs := make([]*Tensor, len(inputs))
+	for i, input := range inputs {
+		outputs[i] = input.BroadCast(func(f float64) float64 {
+			return 1 / (1 + math.Exp(-f))
+		})
+	}
+
+	return outputs
+}
+
 func (s *Sigmoid) Forward(inputs []*Tensor) []*Tensor {
 	s.outputs = make([]*Tensor, len(inputs))
 	for i, input := range inputs {
@@ -89,6 +114,20 @@ func (s *Softmax) Init(inputShape Shape) error {
 	s.inputShape = inputShape
 	s.outputShape = inputShape
 	return nil
+}
+
+func (s *Softmax) Call(inputs []*Tensor) []*Tensor {
+	outputs := make([]*Tensor, len(inputs))
+	for i, input := range inputs {
+		max := input.Max()
+		exp := input.SubBroadCast(max).Exp()
+		sum := exp.Sum()
+		outputs[i] = exp.BroadCast(func(f float64) float64 {
+			return f / sum
+		})
+	}
+
+	return outputs
 }
 
 func (s *Softmax) Forward(inputs []*Tensor) []*Tensor {
@@ -125,12 +164,16 @@ func (l *Lambda) Init(inputShape Shape) error {
 	return nil
 }
 
-func (l *Lambda) Forward(inputs []*Tensor) []*Tensor {
+func (l *Lambda) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
 	for i, input := range inputs {
 		outputs[i] = l.Function(input)
 	}
 	return outputs
+}
+
+func (l *Lambda) Forward(inputs []*Tensor) []*Tensor {
+	return l.Call(inputs)
 }
 
 func (l *Lambda) Backward(douts []*Tensor) []*Tensor {

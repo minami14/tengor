@@ -9,6 +9,7 @@ type Layer interface {
 	InputShape() Shape
 	OutputShape() Shape
 	Init(inputShape Shape) error
+	Call(inputs []*Tensor) []*Tensor
 	Forward(inputs []*Tensor) []*Tensor
 	Backward(douts []*Tensor) []*Tensor
 	Params() []*Tensor
@@ -44,6 +45,10 @@ func (i *Input) Init(inputShape Shape) error {
 	return nil
 }
 
+func (i *Input) Call(inputs []*Tensor) []*Tensor {
+	return inputs
+}
+
 func (i *Input) Forward(inputs []*Tensor) []*Tensor {
 	return inputs
 }
@@ -75,6 +80,14 @@ func (d *Dense) Init(inputShape Shape) error {
 	})
 	d.bias = NewTensor(d.outputShape)
 	return nil
+}
+
+func (d *Dense) Call(inputs []*Tensor) []*Tensor {
+	outputs := make([]*Tensor, len(inputs))
+	for i, input := range inputs {
+		outputs[i] = input.ReShape(Shape{1, input.shape[0]}).Dot(d.weight).ReShape(d.outputShape).AddTensor(d.bias)
+	}
+	return outputs
 }
 
 func (d *Dense) Forward(inputs []*Tensor) []*Tensor {
@@ -126,13 +139,17 @@ func (f *Flatten) Init(inputShape Shape) error {
 	return nil
 }
 
-func (f *Flatten) Forward(inputs []*Tensor) []*Tensor {
+func (f *Flatten) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
 	for i, input := range inputs {
 		outputs[i] = input.Clone()
 		outputs[i].shape = f.outputShape.Clone()
 	}
 	return outputs
+}
+
+func (f *Flatten) Forward(inputs []*Tensor) []*Tensor {
+	return f.Call(inputs)
 }
 
 func (f *Flatten) Backward(douts []*Tensor) []*Tensor {
