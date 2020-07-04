@@ -30,6 +30,7 @@ const (
 	testLabelPath  = baseDir + testLabel
 )
 
+// LoadImage loads mnist images from gzip file.
 func LoadImage(path string) ([]*nn.Tensor, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -75,8 +76,14 @@ func LoadImage(path string) ([]*nn.Tensor, error) {
 
 	images := make([]*nn.Tensor, items)
 	for i := 0; i < items; i++ {
-		if _, err := reader.Read(buf[:size]); err != nil && err != io.EOF {
-			return nil, err
+		start := 0
+		for start < size {
+			n, err := reader.Read(buf[start:size])
+			if err != nil && err != io.EOF {
+				return nil, err
+			}
+
+			start+=n
 		}
 
 		data := make([]float64, size)
@@ -89,6 +96,7 @@ func LoadImage(path string) ([]*nn.Tensor, error) {
 	return images, nil
 }
 
+// LoadLabel loads mnist labels from gzip file.
 func LoadLabel(path string) ([]*nn.Tensor, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -149,6 +157,7 @@ func download(uri, path string) error {
 	return err
 }
 
+// Load downloads and loads mnist dataset.
 func Load() (xTrain, yTrain, xTest, yTest []*nn.Tensor, err error) {
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(baseDir, 0777); err != nil {
