@@ -11,7 +11,7 @@ import (
 const (
 	epochs    = 10
 	batchSize = 100
-	lr        = 0.01
+	lr        = 0.1
 )
 
 func main() {
@@ -27,7 +27,7 @@ func main() {
 	model.AddLayer(&nn.ReLU{})
 	model.AddLayer(&nn.Dense{Units: 10})
 	model.AddLayer(&nn.Softmax{})
-	if err := model.Build(&nn.CrossEntropyError{}, &nn.SGD{LearningRate: 0.1}); err != nil {
+	if err := model.Build(&nn.CrossEntropyError{}, &nn.SGDFactory{LearningRate: lr}); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println(model.Summary())

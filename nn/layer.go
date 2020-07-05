@@ -9,12 +9,12 @@ import (
 type Layer interface {
 	InputShape() Shape
 	OutputShape() Shape
-	Init(inputShape Shape) error
+	Init(inputShape Shape, factory OptimizerFactory) error
 	Call(inputs []*Tensor) []*Tensor
 	Forward(inputs []*Tensor) []*Tensor
 	Backward(douts []*Tensor) []*Tensor
 	Params() []*Tensor
-	Update(optimizer Optimizer)
+	Update()
 }
 
 type BaseLayer struct {
@@ -34,13 +34,13 @@ func (b *BaseLayer) Params() []*Tensor {
 	return nil
 }
 
-func (b *BaseLayer) Update(_ Optimizer) {}
+func (b *BaseLayer) Update() {}
 
 type Input struct {
 	BaseLayer
 }
 
-func (i *Input) Init(inputShape Shape) error {
+func (i *Input) Init(inputShape Shape, _ OptimizerFactory) error {
 	i.inputShape = inputShape
 	i.outputShape = inputShape
 	return nil
@@ -65,21 +65,26 @@ type Dense struct {
 	inputs []*Tensor
 	dw     []*Tensor
 	db     []*Tensor
+	OptW   Optimizer
+	OptB   Optimizer
 	BaseLayer
 }
 
-func (d *Dense) Init(inputShape Shape) error {
+func (d *Dense) Init(inputShape Shape, factory OptimizerFactory) error {
 	if inputShape.Rank() != 1 {
 		return fmt.Errorf("invalid rank %v", inputShape.Rank())
 	}
 
 	d.inputShape = inputShape
 	d.outputShape = Shape{d.Units}
-	d.weight = NewTensor(Shape{inputShape[0], d.Units})
+	wShape := Shape{inputShape[0], d.Units}
+	d.weight = NewTensor(wShape)
 	d.weight = d.weight.BroadCast(func(_ float64) float64 {
 		return rand.Float64() * 0.01
 	})
 	d.bias = NewTensor(d.outputShape)
+	d.OptW = factory.Create(wShape)
+	d.OptB = factory.Create(d.outputShape)
 	return nil
 }
 
@@ -137,7 +142,7 @@ func (d *Dense) Params() []*Tensor {
 	return []*Tensor{d.weight, d.bias}
 }
 
-func (d *Dense) Update(optimizer Optimizer) {
+func (d *Dense) Update() {
 	dw := NewTensor(d.dw[0].shape)
 	db := NewTensor(d.db[0].shape)
 	for i := 0; i < len(d.dw); i++ {
@@ -146,15 +151,15 @@ func (d *Dense) Update(optimizer Optimizer) {
 	}
 	dw = dw.DivBroadCast(float64(len(d.dw)))
 	db = db.DivBroadCast(float64(len(d.db)))
-	d.weight = optimizer.Update(d.weight, dw)
-	d.bias = optimizer.Update(d.bias, db)
+	d.weight = d.OptW.Update(d.weight, dw)
+	d.bias = d.OptB.Update(d.bias, db)
 }
 
 type Flatten struct {
 	BaseLayer
 }
 
-func (f *Flatten) Init(inputShape Shape) error {
+func (f *Flatten) Init(inputShape Shape, _ OptimizerFactory) error {
 	f.inputShape = inputShape
 	f.outputShape = Shape{inputShape.Elements()}
 	return nil
@@ -183,7 +188,7 @@ type Dropout struct {
 	BaseLayer
 }
 
-func (d *Dropout) Init(inputShape Shape) error {
+func (d *Dropout) Init(inputShape Shape, _ OptimizerFactory) error {
 	d.inputShape = inputShape
 	d.outputShape = inputShape
 	return nil

@@ -14,11 +14,11 @@ type Model interface {
 }
 
 type Sequential struct {
-	inputShape  Shape
-	outputShape Shape
-	layers      []Layer
-	loss        Loss
-	optimizer   Optimizer
+	inputShape       Shape
+	outputShape      Shape
+	layers           []Layer
+	loss             Loss
+	optimizerFactory OptimizerFactory
 }
 
 func NewSequential(inputShape Shape) *Sequential {
@@ -65,7 +65,7 @@ func (s *Sequential) Update(x, t []*Tensor) {
 	dout := s.loss.Backward()
 	for i := len(s.layers) - 1; i >= 0; i-- {
 		dout = s.layers[i].Backward(dout)
-		s.layers[i].Update(s.optimizer)
+		s.layers[i].Update()
 	}
 }
 
@@ -91,14 +91,14 @@ func (s *Sequential) Accuracy(y, t []*Tensor) float64 {
 	return sum / float64(len(t))
 }
 
-func (s *Sequential) Build(loss Loss, optimizer Optimizer) error {
-	if err := s.layers[0].Init(s.inputShape); err != nil {
+func (s *Sequential) Build(loss Loss, factory OptimizerFactory) error {
+	if err := s.layers[0].Init(s.inputShape, factory); err != nil {
 		return err
 	}
 
 	shape := s.layers[0].OutputShape()
 	for i, layer := range s.layers[1:] {
-		if err := layer.Init(shape); err != nil {
+		if err := layer.Init(shape, factory); err != nil {
 			return fmt.Errorf("build error layer %v %v %v", i+1, reflect.TypeOf(layer), err)
 		}
 
@@ -106,7 +106,7 @@ func (s *Sequential) Build(loss Loss, optimizer Optimizer) error {
 	}
 
 	s.loss = loss
-	s.optimizer = optimizer
+	s.optimizerFactory = factory
 
 	return nil
 }
