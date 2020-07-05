@@ -3,6 +3,7 @@ package nn
 import (
 	"fmt"
 	"math"
+	"sync"
 )
 
 type ReLU struct {
@@ -18,45 +19,61 @@ func (r *ReLU) Init(inputShape Shape) error {
 
 func (r *ReLU) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		output := NewTensor(input.shape)
-		for j := 0; j < input.shape.Elements(); j++ {
-			x := math.Max(input.rawData[j], 0)
-			output.rawData[j] = x
-		}
-		outputs[i] = output
+		go func(i int, input *Tensor) {
+			output := NewTensor(input.shape)
+			for j := 0; j < input.shape.Elements(); j++ {
+				x := math.Max(input.rawData[j], 0)
+				output.rawData[j] = x
+			}
+			outputs[i] = output
+			wg.Done()
+		}(i, input)
 	}
-
+	wg.Wait()
 	return outputs
 }
 
 func (r *ReLU) Forward(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
 	r.mask = make([][]bool, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		r.mask[i] = make([]bool, input.shape.Elements())
-		output := NewTensor(input.shape)
-		for j := 0; j < input.shape.Elements(); j++ {
-			x := math.Max(input.rawData[j], 0)
-			r.mask[i][j] = x <= 0
-			output.rawData[j] = x
-		}
-		outputs[i] = output
+		go func(i int, input *Tensor) {
+			r.mask[i] = make([]bool, input.shape.Elements())
+			output := NewTensor(input.shape)
+			for j := 0; j < input.shape.Elements(); j++ {
+				x := math.Max(input.rawData[j], 0)
+				r.mask[i][j] = x <= 0
+				output.rawData[j] = x
+			}
+			outputs[i] = output
+			wg.Done()
+		}(i, input)
 	}
-
+	wg.Wait()
 	return outputs
 }
 
 func (r *ReLU) Backward(douts []*Tensor) []*Tensor {
 	d := make([]*Tensor, len(douts))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(douts))
 	for i, dout := range douts {
-		d[i] = dout.Clone()
-		for j := 0; j < d[i].shape.Elements(); j++ {
-			if r.mask[i][j] {
-				d[i].rawData[j] = 0
+		go func(i int, dout *Tensor) {
+			d[i] = dout.Clone()
+			for j := 0; j < d[i].shape.Elements(); j++ {
+				if r.mask[i][j] {
+					d[i].rawData[j] = 0
+				}
 			}
-		}
+			wg.Done()
+		}(i, dout)
 	}
+	wg.Wait()
 	return d
 }
 
@@ -73,31 +90,47 @@ func (s *Sigmoid) Init(inputShape Shape) error {
 
 func (s *Sigmoid) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		outputs[i] = input.BroadCast(func(f float64) float64 {
-			return 1 / (1 + math.Exp(-f))
-		})
+		go func(i int, input *Tensor) {
+			outputs[i] = input.BroadCast(func(f float64) float64 {
+				return 1 / (1 + math.Exp(-f))
+			})
+			wg.Done()
+		}(i, input)
 	}
-
+	wg.Wait()
 	return outputs
 }
 
 func (s *Sigmoid) Forward(inputs []*Tensor) []*Tensor {
 	s.outputs = make([]*Tensor, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		s.outputs[i] = input.BroadCast(func(f float64) float64 {
-			return 1 / (1 + math.Exp(-f))
-		})
+		go func(i int, input *Tensor) {
+			s.outputs[i] = input.BroadCast(func(f float64) float64 {
+				return 1 / (1 + math.Exp(-f))
+			})
+			wg.Done()
+		}(i, input)
 	}
-
+	wg.Wait()
 	return s.outputs
 }
 
 func (s *Sigmoid) Backward(douts []*Tensor) []*Tensor {
 	d := make([]*Tensor, len(douts))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(douts))
 	for i, dout := range douts {
-		d[i] = s.outputs[i].MulBroadCast(-1).AddBroadCast(1).MulTensor(s.outputs[i]).MulTensor(dout)
+		go func(i int, dout *Tensor) {
+			d[i] = s.outputs[i].MulBroadCast(-1).AddBroadCast(1).MulTensor(s.outputs[i]).MulTensor(dout)
+			wg.Done()
+		}(i, dout)
 	}
+	wg.Wait()
 	return d
 }
 
@@ -118,37 +151,54 @@ func (s *Softmax) Init(inputShape Shape) error {
 
 func (s *Softmax) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		max := input.Max()
-		exp := input.SubBroadCast(max).Exp()
-		sum := exp.Sum()
-		outputs[i] = exp.BroadCast(func(f float64) float64 {
-			return f / sum
-		})
+		go func(i int, input *Tensor) {
+			max := input.Max()
+			exp := input.SubBroadCast(max).Exp()
+			sum := exp.Sum()
+			outputs[i] = exp.BroadCast(func(f float64) float64 {
+				return f / sum
+			})
+			wg.Done()
+		}(i, input)
 	}
-
+	wg.Wait()
 	return outputs
 }
 
 func (s *Softmax) Forward(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		max := input.Max()
-		exp := input.SubBroadCast(max).Exp()
-		sum := exp.Sum()
-		outputs[i] = exp.BroadCast(func(f float64) float64 {
-			return f / sum
-		})
+		go func(i int, input *Tensor) {
+			max := input.Max()
+			exp := input.SubBroadCast(max).Exp()
+			sum := exp.Sum()
+			outputs[i] = exp.BroadCast(func(f float64) float64 {
+				return f / sum
+			})
+			wg.Done()
+		}(i, input)
 	}
+	wg.Wait()
 	s.outputs = outputs
 
 	return outputs
 }
 
 func (s *Softmax) Backward(douts []*Tensor) []*Tensor {
+	wg := new(sync.WaitGroup)
+	wg.Add(len(s.outputs))
 	for i, output := range s.outputs {
-		douts[i] = douts[i].MulTensor(output).AddTensor(output)
+		go func(i int, output *Tensor) {
+			douts[i] = douts[i].MulTensor(output).AddTensor(output)
+			wg.Done()
+		}(i, output)
 	}
+	wg.Wait()
 	return douts
 }
 
@@ -166,9 +216,15 @@ func (l *Lambda) Init(inputShape Shape) error {
 
 func (l *Lambda) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		outputs[i] = l.Function(input)
+		go func(i int, input *Tensor) {
+			outputs[i] = l.Function(input)
+			wg.Done()
+		}(i, input)
 	}
+	wg.Wait()
 	return outputs
 }
 
