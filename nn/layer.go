@@ -3,6 +3,7 @@ package nn
 import (
 	"fmt"
 	"math/rand"
+	"sync"
 )
 
 type Layer interface {
@@ -84,19 +85,31 @@ func (d *Dense) Init(inputShape Shape) error {
 
 func (d *Dense) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		outputs[i] = input.ReShape(Shape{1, input.shape[0]}).Dot(d.weight).ReShape(d.outputShape).AddTensor(d.bias)
+		go func(i int, input *Tensor) {
+			outputs[i] = input.ReShape(Shape{1, input.shape[0]}).Dot(d.weight).ReShape(d.outputShape).AddTensor(d.bias)
+			wg.Done()
+		}(i, input)
 	}
+	wg.Wait()
 	return outputs
 }
 
 func (d *Dense) Forward(inputs []*Tensor) []*Tensor {
 	d.inputs = make([]*Tensor, len(inputs))
 	outputs := make([]*Tensor, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		d.inputs[i] = input
-		outputs[i] = input.ReShape(Shape{1, input.shape[0]}).Dot(d.weight).ReShape(d.outputShape).AddTensor(d.bias)
+		go func(i int, input *Tensor) {
+			d.inputs[i] = input
+			outputs[i] = input.ReShape(Shape{1, input.shape[0]}).Dot(d.weight).ReShape(d.outputShape).AddTensor(d.bias)
+			wg.Done()
+		}(i, input)
 	}
+	wg.Wait()
 	return outputs
 }
 
@@ -104,13 +117,19 @@ func (d *Dense) Backward(douts []*Tensor) []*Tensor {
 	d.dw = make([]*Tensor, len(douts))
 	d.db = make([]*Tensor, len(douts))
 	dx := make([]*Tensor, len(douts))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(douts))
 	for i, dout := range douts {
-		d.db[i] = dout.Clone()
-		dout = dout.ReShape(Shape{1, dout.shape[0]})
-		dx[i] = dout.Dot(d.weight.Transpose())
-		dx[i] = dx[i].ReShape(Shape{dx[i].shape[1]})
-		d.dw[i] = d.inputs[i].ReShape(Shape{1, d.inputs[i].shape[0]}).Transpose().Dot(dout)
+		go func(i int, dout *Tensor) {
+			d.db[i] = dout.Clone()
+			dout = dout.ReShape(Shape{1, dout.shape[0]})
+			dx[i] = dout.Dot(d.weight.Transpose())
+			dx[i] = dx[i].ReShape(Shape{dx[i].shape[1]})
+			d.dw[i] = d.inputs[i].ReShape(Shape{1, d.inputs[i].shape[0]}).Transpose().Dot(dout)
+			wg.Done()
+		}(i, dout)
 	}
+	wg.Wait()
 	return dx
 }
 
