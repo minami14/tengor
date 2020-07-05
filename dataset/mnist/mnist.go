@@ -22,13 +22,28 @@ const (
 
 	imageMagic = 2051
 	labelMagic = 2049
-
-	baseDir        = ".tengor/dataset/mnist/"
-	trainImagePath = baseDir + trainImage
-	trainLabelPath = baseDir + trainLabel
-	testImagePath  = baseDir + testImage
-	testLabelPath  = baseDir + testLabel
 )
+
+var (
+	basedir  = "tengor/dataset/mnist/"
+	trainImagePath = basedir + trainImage
+	trainLabelPath = basedir + trainLabel
+	testImagePath  = basedir + testImage
+	testLabelPath  = basedir + testLabel
+)
+
+func init() {
+	cache, err := os.UserCacheDir()
+	if err != nil {
+		return
+	}
+
+	basedir = cache + "/" + basedir
+	trainImagePath = basedir + trainImage
+	trainLabelPath = basedir + trainLabel
+	testImagePath  = basedir + testImage
+	testLabelPath  = basedir + testLabel
+}
 
 // LoadImage loads mnist images from gzip file.
 func LoadImage(path string) ([]*nn.Tensor, error) {
@@ -159,8 +174,8 @@ func download(uri, path string) error {
 
 // Load downloads and loads mnist dataset.
 func Load() (xTrain, yTrain, xTest, yTest []*nn.Tensor, err error) {
-	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(baseDir, 0777); err != nil {
+	if _, err := os.Stat(basedir); os.IsNotExist(err) {
+		if err := os.MkdirAll(basedir, 0777); err != nil {
 			return nil, nil, nil, nil, err
 		}
 	}
