@@ -11,7 +11,7 @@ type ReLU struct {
 	mask [][]bool
 }
 
-func (r *ReLU) Init(inputShape Shape) error {
+func (r *ReLU) Init(inputShape Shape, _ OptimizerFactory) error {
 	r.inputShape = inputShape
 	r.outputShape = inputShape
 	return nil
@@ -82,7 +82,7 @@ type Sigmoid struct {
 	outputs []*Tensor
 }
 
-func (s *Sigmoid) Init(inputShape Shape) error {
+func (s *Sigmoid) Init(inputShape Shape, _ OptimizerFactory) error {
 	s.inputShape = inputShape
 	s.outputShape = inputShape
 	return nil
@@ -139,7 +139,7 @@ type Softmax struct {
 	outputs []*Tensor
 }
 
-func (s *Softmax) Init(inputShape Shape) error {
+func (s *Softmax) Init(inputShape Shape, _ OptimizerFactory) error {
 	if inputShape.Rank() != 1 {
 		return fmt.Errorf("invalid rank %v", inputShape.Rank())
 	}
@@ -208,7 +208,7 @@ type Lambda struct {
 	BaseLayer
 }
 
-func (l *Lambda) Init(inputShape Shape) error {
+func (l *Lambda) Init(inputShape Shape, _ OptimizerFactory) error {
 	l.inputShape = inputShape
 	l.outputShape = l.CalcOutputShape(inputShape)
 	return nil
