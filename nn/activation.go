@@ -90,31 +90,47 @@ func (s *Sigmoid) Init(inputShape Shape) error {
 
 func (s *Sigmoid) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		outputs[i] = input.BroadCast(func(f float64) float64 {
-			return 1 / (1 + math.Exp(-f))
-		})
+		go func(i int, input *Tensor) {
+			outputs[i] = input.BroadCast(func(f float64) float64 {
+				return 1 / (1 + math.Exp(-f))
+			})
+			wg.Done()
+		}(i, input)
 	}
-
+	wg.Wait()
 	return outputs
 }
 
 func (s *Sigmoid) Forward(inputs []*Tensor) []*Tensor {
 	s.outputs = make([]*Tensor, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		s.outputs[i] = input.BroadCast(func(f float64) float64 {
-			return 1 / (1 + math.Exp(-f))
-		})
+		go func(i int, input *Tensor) {
+			s.outputs[i] = input.BroadCast(func(f float64) float64 {
+				return 1 / (1 + math.Exp(-f))
+			})
+			wg.Done()
+		}(i, input)
 	}
-
+	wg.Wait()
 	return s.outputs
 }
 
 func (s *Sigmoid) Backward(douts []*Tensor) []*Tensor {
 	d := make([]*Tensor, len(douts))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(douts))
 	for i, dout := range douts {
-		d[i] = s.outputs[i].MulBroadCast(-1).AddBroadCast(1).MulTensor(s.outputs[i]).MulTensor(dout)
+		go func(i int, dout *Tensor) {
+			d[i] = s.outputs[i].MulBroadCast(-1).AddBroadCast(1).MulTensor(s.outputs[i]).MulTensor(dout)
+			wg.Done()
+		}(i, dout)
 	}
+	wg.Wait()
 	return d
 }
 
