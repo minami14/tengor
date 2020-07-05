@@ -14,7 +14,7 @@ type Layer interface {
 	Forward(inputs []*Tensor) []*Tensor
 	Backward(douts []*Tensor) []*Tensor
 	Params() []*Tensor
-	Update(lr float64)
+	Update(optimizer Optimizer)
 }
 
 type BaseLayer struct {
@@ -34,7 +34,7 @@ func (b *BaseLayer) Params() []*Tensor {
 	return nil
 }
 
-func (b *BaseLayer) Update(_ float64) {}
+func (b *BaseLayer) Update(_ Optimizer) {}
 
 type Input struct {
 	BaseLayer
@@ -137,15 +137,17 @@ func (d *Dense) Params() []*Tensor {
 	return []*Tensor{d.weight, d.bias}
 }
 
-func (d *Dense) Update(lr float64) {
+func (d *Dense) Update(optimizer Optimizer) {
 	dw := NewTensor(d.dw[0].shape)
 	db := NewTensor(d.db[0].shape)
 	for i := 0; i < len(d.dw); i++ {
 		dw = dw.AddTensor(d.dw[i])
 		db = db.AddTensor(d.db[i])
 	}
-	d.weight = d.weight.SubTensor(dw.MulBroadCast(lr / float64(len(d.dw))))
-	d.bias = d.bias.SubTensor(db.MulBroadCast(lr / float64(len(d.db))))
+	dw = dw.DivBroadCast(float64(len(d.dw)))
+	db = db.DivBroadCast(float64(len(d.db)))
+	d.weight = optimizer.Update(d.weight, dw)
+	d.bias = optimizer.Update(d.bias, db)
 }
 
 type Flatten struct {

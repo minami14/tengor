@@ -14,19 +14,18 @@ type Model interface {
 }
 
 type Sequential struct {
-	inputShape   Shape
-	outputShape  Shape
-	layers       []Layer
-	loss         Loss
-	LearningRate float64
+	inputShape  Shape
+	outputShape Shape
+	layers      []Layer
+	loss        Loss
+	optimizer   Optimizer
 }
 
 func NewSequential(inputShape Shape) *Sequential {
 	return &Sequential{
-		inputShape:   inputShape,
-		outputShape:  inputShape,
-		layers:       []Layer{&Input{}},
-		LearningRate: 0.1,
+		inputShape:  inputShape,
+		outputShape: inputShape,
+		layers:      []Layer{&Input{}},
 	}
 }
 
@@ -66,7 +65,7 @@ func (s *Sequential) Update(x, t []*Tensor) {
 	dout := s.loss.Backward()
 	for i := len(s.layers) - 1; i >= 0; i-- {
 		dout = s.layers[i].Backward(dout)
-		s.layers[i].Update(s.LearningRate)
+		s.layers[i].Update(s.optimizer)
 	}
 }
 
@@ -92,7 +91,7 @@ func (s *Sequential) Accuracy(y, t []*Tensor) float64 {
 	return sum / float64(len(t))
 }
 
-func (s *Sequential) Build(loss Loss) error {
+func (s *Sequential) Build(loss Loss, optimizer Optimizer) error {
 	if err := s.layers[0].Init(s.inputShape); err != nil {
 		return err
 	}
@@ -107,6 +106,7 @@ func (s *Sequential) Build(loss Loss) error {
 	}
 
 	s.loss = loss
+	s.optimizer = optimizer
 
 	return nil
 }

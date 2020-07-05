@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-  
+
 	"github.com/minami14/tengor/dataset/mnist"
 	"github.com/minami14/tengor/nn"
 )
@@ -11,6 +11,7 @@ import (
 const (
 	epochs    = 10
 	batchSize = 100
+	lr        = 0.01
 )
 
 func main() {
@@ -26,7 +27,7 @@ func main() {
 	model.AddLayer(&nn.ReLU{})
 	model.AddLayer(&nn.Dense{Units: 10})
 	model.AddLayer(&nn.Softmax{})
-	if err := model.Build(&nn.CrossEntropyError{}); err != nil {
+	if err := model.Build(&nn.CrossEntropyError{}, &nn.SGD{LearningRate: 0.1}); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println(model.Summary())
