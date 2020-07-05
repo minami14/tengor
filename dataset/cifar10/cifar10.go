@@ -16,13 +16,26 @@ import (
 const (
 	url      = "https://www.cs.toronto.edu/~kriz/"
 	filename = "cifar-10-binary.tar.gz"
-	basedir  = ".tengor/dataset/cifar10/"
-	filepath = basedir + filename
 	h        = 32
 	w        = 32
 	c        = 3
 	size     = h * w * c
 )
+
+var (
+	basedir  = "tengor/dataset/cifar10/"
+	filepath = basedir + filename
+)
+
+func init() {
+	cache, err := os.UserCacheDir()
+	if err != nil {
+		return
+	}
+
+	basedir = cache + "/" + basedir
+	filepath = basedir + filename
+}
 
 func download() error {
 	if _, err := os.Stat(basedir); os.IsNotExist(err) {
