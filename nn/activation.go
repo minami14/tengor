@@ -151,37 +151,54 @@ func (s *Softmax) Init(inputShape Shape) error {
 
 func (s *Softmax) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		max := input.Max()
-		exp := input.SubBroadCast(max).Exp()
-		sum := exp.Sum()
-		outputs[i] = exp.BroadCast(func(f float64) float64 {
-			return f / sum
-		})
+		go func(i int, input *Tensor) {
+			max := input.Max()
+			exp := input.SubBroadCast(max).Exp()
+			sum := exp.Sum()
+			outputs[i] = exp.BroadCast(func(f float64) float64 {
+				return f / sum
+			})
+			wg.Done()
+		}(i, input)
 	}
-
+	wg.Wait()
 	return outputs
 }
 
 func (s *Softmax) Forward(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		max := input.Max()
-		exp := input.SubBroadCast(max).Exp()
-		sum := exp.Sum()
-		outputs[i] = exp.BroadCast(func(f float64) float64 {
-			return f / sum
-		})
+		go func(i int, input *Tensor) {
+			max := input.Max()
+			exp := input.SubBroadCast(max).Exp()
+			sum := exp.Sum()
+			outputs[i] = exp.BroadCast(func(f float64) float64 {
+				return f / sum
+			})
+			wg.Done()
+		}(i, input)
 	}
+	wg.Wait()
 	s.outputs = outputs
 
 	return outputs
 }
 
 func (s *Softmax) Backward(douts []*Tensor) []*Tensor {
+	wg := new(sync.WaitGroup)
+	wg.Add(len(s.outputs))
 	for i, output := range s.outputs {
-		douts[i] = douts[i].MulTensor(output).AddTensor(output)
+		go func(i int, output *Tensor) {
+			douts[i] = douts[i].MulTensor(output).AddTensor(output)
+			wg.Done()
+		}(i, output)
 	}
+	wg.Wait()
 	return douts
 }
 
