@@ -216,9 +216,15 @@ func (l *Lambda) Init(inputShape Shape) error {
 
 func (l *Lambda) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		outputs[i] = l.Function(input)
+		go func(i int, input *Tensor) {
+			outputs[i] = l.Function(input)
+			wg.Done()
+		}(i, input)
 	}
+	wg.Wait()
 	return outputs
 }
 
