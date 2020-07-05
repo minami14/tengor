@@ -3,6 +3,7 @@ package nn
 import (
 	"fmt"
 	"math"
+	"sync"
 )
 
 type ReLU struct {
@@ -18,45 +19,61 @@ func (r *ReLU) Init(inputShape Shape) error {
 
 func (r *ReLU) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		output := NewTensor(input.shape)
-		for j := 0; j < input.shape.Elements(); j++ {
-			x := math.Max(input.rawData[j], 0)
-			output.rawData[j] = x
-		}
-		outputs[i] = output
+		go func(i int, input *Tensor) {
+			output := NewTensor(input.shape)
+			for j := 0; j < input.shape.Elements(); j++ {
+				x := math.Max(input.rawData[j], 0)
+				output.rawData[j] = x
+			}
+			outputs[i] = output
+			wg.Done()
+		}(i, input)
 	}
-
+	wg.Wait()
 	return outputs
 }
 
 func (r *ReLU) Forward(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
 	r.mask = make([][]bool, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
 	for i, input := range inputs {
-		r.mask[i] = make([]bool, input.shape.Elements())
-		output := NewTensor(input.shape)
-		for j := 0; j < input.shape.Elements(); j++ {
-			x := math.Max(input.rawData[j], 0)
-			r.mask[i][j] = x <= 0
-			output.rawData[j] = x
-		}
-		outputs[i] = output
+		go func(i int, input *Tensor) {
+			r.mask[i] = make([]bool, input.shape.Elements())
+			output := NewTensor(input.shape)
+			for j := 0; j < input.shape.Elements(); j++ {
+				x := math.Max(input.rawData[j], 0)
+				r.mask[i][j] = x <= 0
+				output.rawData[j] = x
+			}
+			outputs[i] = output
+			wg.Done()
+		}(i, input)
 	}
-
+	wg.Wait()
 	return outputs
 }
 
 func (r *ReLU) Backward(douts []*Tensor) []*Tensor {
 	d := make([]*Tensor, len(douts))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(douts))
 	for i, dout := range douts {
-		d[i] = dout.Clone()
-		for j := 0; j < d[i].shape.Elements(); j++ {
-			if r.mask[i][j] {
-				d[i].rawData[j] = 0
+		go func(i int, dout *Tensor) {
+			d[i] = dout.Clone()
+			for j := 0; j < d[i].shape.Elements(); j++ {
+				if r.mask[i][j] {
+					d[i].rawData[j] = 0
+				}
 			}
-		}
+			wg.Done()
+		}(i, dout)
 	}
+	wg.Wait()
 	return d
 }
 
