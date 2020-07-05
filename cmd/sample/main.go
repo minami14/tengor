@@ -35,6 +35,6 @@ func main() {
 
 	pred := model.Predict(xTest)
 	loss := model.Loss(pred, yTest)
-	acc := model.Loss(pred, yTest)
+	acc := model.Accuracy(pred, yTest)
 	fmt.Printf("loss: %.4f\nacc: %.4f\n", loss, acc)
 }
