@@ -17,78 +17,79 @@ type Layer interface {
 	Update()
 }
 
-type BaseLayer struct {
+type inputLayer struct {
 	inputShape  Shape
 	outputShape Shape
 }
 
-func (b *BaseLayer) InputShape() Shape {
-	return b.inputShape
-}
-
-func (b *BaseLayer) OutputShape() Shape {
-	return b.outputShape
-}
-
-func (b *BaseLayer) Params() []*Tensor {
-	return nil
-}
-
-func (b *BaseLayer) Update() {}
-
-type Input struct {
-	BaseLayer
-}
-
-func (i *Input) Init(inputShape Shape, _ OptimizerFactory) error {
+func (i *inputLayer) Init(inputShape Shape, _ OptimizerFactory) error {
 	i.inputShape = inputShape
 	i.outputShape = inputShape
 	return nil
 }
 
-func (i *Input) Call(inputs []*Tensor) []*Tensor {
+func (i *inputLayer) Call(inputs []*Tensor) []*Tensor {
 	return inputs
 }
 
-func (i *Input) Forward(inputs []*Tensor) []*Tensor {
+func (i *inputLayer) Forward(inputs []*Tensor) []*Tensor {
 	return inputs
 }
 
-func (i *Input) Backward(douts []*Tensor) []*Tensor {
+func (i *inputLayer) Backward(douts []*Tensor) []*Tensor {
 	return douts
 }
 
-type Dense struct {
-	Units  int
-	weight *Tensor
-	bias   *Tensor
-	inputs []*Tensor
-	dw     []*Tensor
-	db     []*Tensor
-	OptW   Optimizer
-	OptB   Optimizer
-	BaseLayer
+func (i *inputLayer) InputShape() Shape {
+	return i.inputShape
 }
 
-func (d *Dense) Init(inputShape Shape, factory OptimizerFactory) error {
+func (i *inputLayer) OutputShape() Shape {
+	return i.outputShape
+}
+
+func (i *inputLayer) Params() []*Tensor {
+	return nil
+}
+
+func (i *inputLayer) Update() {}
+
+type dense struct {
+	units       int
+	weight      *Tensor
+	bias        *Tensor
+	inputs      []*Tensor
+	dw          []*Tensor
+	db          []*Tensor
+	optW        Optimizer
+	optB        Optimizer
+	inputShape  Shape
+	outputShape Shape
+}
+
+func Dense(units int) Layer {
+	return &dense{units: units}
+}
+
+func (d *dense) Init(inputShape Shape, factory OptimizerFactory) error {
 	if inputShape.Rank() != 1 {
 		return fmt.Errorf("invalid rank %v", inputShape.Rank())
 	}
 
 	d.inputShape = inputShape
-	d.outputShape = Shape{d.Units}
-	wShape := Shape{inputShape[0], d.Units}
+	d.outputShape = Shape{d.units}
+	wShape := Shape{inputShape[0], d.units}
 	d.weight = NewTensor(wShape)
 	d.weight = d.weight.BroadCast(func(_ float64) float64 {
 		return rand.Float64() * 0.01
 	})
 	d.bias = NewTensor(d.outputShape)
-	d.OptW = factory.Create(wShape)
-	d.OptB = factory.Create(d.outputShape)
+	d.optW = factory.Create(wShape)
+	d.optB = factory.Create(d.outputShape)
 	return nil
 }
 
-func (d *Dense) Call(inputs []*Tensor) []*Tensor {
+func (d *dense) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
 	wg := new(sync.WaitGroup)
 	wg.Add(len(inputs))
@@ -102,7 +103,7 @@ func (d *Dense) Call(inputs []*Tensor) []*Tensor {
 	return outputs
 }
 
-func (d *Dense) Forward(inputs []*Tensor) []*Tensor {
+func (d *dense) Forward(inputs []*Tensor) []*Tensor {
 	d.inputs = make([]*Tensor, len(inputs))
 	outputs := make([]*Tensor, len(inputs))
 	wg := new(sync.WaitGroup)
@@ -118,7 +119,7 @@ func (d *Dense) Forward(inputs []*Tensor) []*Tensor {
 	return outputs
 }
 
-func (d *Dense) Backward(douts []*Tensor) []*Tensor {
+func (d *dense) Backward(douts []*Tensor) []*Tensor {
 	d.dw = make([]*Tensor, len(douts))
 	d.db = make([]*Tensor, len(douts))
 	dx := make([]*Tensor, len(douts))
@@ -138,11 +139,11 @@ func (d *Dense) Backward(douts []*Tensor) []*Tensor {
 	return dx
 }
 
-func (d *Dense) Params() []*Tensor {
+func (d *dense) Params() []*Tensor {
 	return []*Tensor{d.weight, d.bias}
 }
 
-func (d *Dense) Update() {
+func (d *dense) Update() {
 	dw := NewTensor(d.dw[0].shape)
 	db := NewTensor(d.db[0].shape)
 	for i := 0; i < len(d.dw); i++ {
@@ -151,21 +152,34 @@ func (d *Dense) Update() {
 	}
 	dw = dw.DivBroadCast(float64(len(d.dw)))
 	db = db.DivBroadCast(float64(len(d.db)))
-	d.weight = d.OptW.Update(d.weight, dw)
-	d.bias = d.OptB.Update(d.bias, db)
+	d.weight = d.optW.Update(d.weight, dw)
+	d.bias = d.optB.Update(d.bias, db)
 }
 
-type Flatten struct {
-	BaseLayer
+func (d *dense) InputShape() Shape {
+	return d.inputShape
 }
 
-func (f *Flatten) Init(inputShape Shape, _ OptimizerFactory) error {
+func (d *dense) OutputShape() Shape {
+	return d.outputShape
+}
+
+type flatten struct {
+	inputShape  Shape
+	outputShape Shape
+}
+
+func Flatten() Layer {
+	return &flatten{}
+}
+
+func (f *flatten) Init(inputShape Shape, _ OptimizerFactory) error {
 	f.inputShape = inputShape
 	f.outputShape = Shape{inputShape.Elements()}
 	return nil
 }
 
-func (f *Flatten) Call(inputs []*Tensor) []*Tensor {
+func (f *flatten) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
 	for i, input := range inputs {
 		outputs[i] = input.Clone()
@@ -174,34 +188,53 @@ func (f *Flatten) Call(inputs []*Tensor) []*Tensor {
 	return outputs
 }
 
-func (f *Flatten) Forward(inputs []*Tensor) []*Tensor {
+func (f *flatten) Forward(inputs []*Tensor) []*Tensor {
 	return f.Call(inputs)
 }
 
-func (f *Flatten) Backward(douts []*Tensor) []*Tensor {
+func (f *flatten) Backward(douts []*Tensor) []*Tensor {
 	return douts
 }
 
-type Dropout struct {
-	Rate float64
-	mask [][]bool
-	BaseLayer
+func (f *flatten) InputShape() Shape {
+	return f.inputShape
 }
 
-func (d *Dropout) Init(inputShape Shape, _ OptimizerFactory) error {
+func (f *flatten) OutputShape() Shape {
+	return f.outputShape
+}
+
+func (f *flatten) Params() []*Tensor {
+	return nil
+}
+
+func (f *flatten) Update() {}
+
+type dropout struct {
+	rate        float64
+	mask        [][]bool
+	inputShape  Shape
+	outputShape Shape
+}
+
+func Dropout(rate float64) Layer {
+	return &dropout{rate: rate}
+}
+
+func (d *dropout) Init(inputShape Shape, _ OptimizerFactory) error {
 	d.inputShape = inputShape
 	d.outputShape = inputShape
 	return nil
 }
 
-func (d *Dropout) Call(inputs []*Tensor) []*Tensor {
+func (d *dropout) Call(inputs []*Tensor) []*Tensor {
 	return inputs
 }
 
-func (d *Dropout) Forward(inputs []*Tensor) []*Tensor {
+func (d *dropout) Forward(inputs []*Tensor) []*Tensor {
 	d.mask = make([][]bool, len(inputs))
 	units := inputs[0].shape.Elements()
-	active := int(float64(units) * (1 - d.Rate))
+	active := int(float64(units) * (1 - d.rate))
 	for i, input := range inputs {
 		mask := make([]bool, units)
 		for n := 0; n < active; {
@@ -218,7 +251,7 @@ func (d *Dropout) Forward(inputs []*Tensor) []*Tensor {
 	return inputs
 }
 
-func (d *Dropout) Backward(douts []*Tensor) []*Tensor {
+func (d *dropout) Backward(douts []*Tensor) []*Tensor {
 	for i, dout := range douts {
 		for j, drop := range d.mask[i] {
 			if drop {
@@ -228,3 +261,17 @@ func (d *Dropout) Backward(douts []*Tensor) []*Tensor {
 	}
 	return douts
 }
+
+func (d *dropout) InputShape() Shape {
+	return d.inputShape
+}
+
+func (d *dropout) OutputShape() Shape {
+	return d.outputShape
+}
+
+func (d *dropout) Params() []*Tensor {
+	return nil
+}
+
+func (d *dropout) Update() {}

@@ -25,7 +25,7 @@ func NewSequential(inputShape Shape) *Sequential {
 	return &Sequential{
 		inputShape:  inputShape,
 		outputShape: inputShape,
-		layers:      []Layer{&Input{}},
+		layers:      []Layer{&inputLayer{}},
 	}
 }
 

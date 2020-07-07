@@ -8,12 +8,16 @@ type Loss interface {
 	Backward() []*Tensor
 }
 
-type CrossEntropyError struct {
+type crossEntropyError struct {
 	y []*Tensor
 	t []*Tensor
 }
 
-func (c *CrossEntropyError) Call(y, t []*Tensor) float64 {
+func CrossEntropyError() Loss {
+	return &crossEntropyError{}
+}
+
+func (c *crossEntropyError) Call(y, t []*Tensor) float64 {
 	const delta = 1e-7
 	sum := 0.0
 	wg := new(sync.WaitGroup)
@@ -32,7 +36,7 @@ func (c *CrossEntropyError) Call(y, t []*Tensor) float64 {
 	return sum / float64(len(t))
 }
 
-func (c *CrossEntropyError) Forward(y, t []*Tensor) float64 {
+func (c *crossEntropyError) Forward(y, t []*Tensor) float64 {
 	const delta = 1e-7
 	c.y = make([]*Tensor, len(y))
 	c.t = make([]*Tensor, len(t))
@@ -55,7 +59,7 @@ func (c *CrossEntropyError) Forward(y, t []*Tensor) float64 {
 	return sum / float64(len(t))
 }
 
-func (c *CrossEntropyError) Backward() []*Tensor {
+func (c *crossEntropyError) Backward() []*Tensor {
 	d := make([]*Tensor, len(c.y))
 	wg := new(sync.WaitGroup)
 	wg.Add(len(c.y))

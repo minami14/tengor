@@ -6,18 +6,23 @@ import (
 	"sync"
 )
 
-type ReLU struct {
-	BaseLayer
-	mask [][]bool
+type relu struct {
+	inputShape  Shape
+	outputShape Shape
+	mask        [][]bool
 }
 
-func (r *ReLU) Init(inputShape Shape, _ OptimizerFactory) error {
+func ReLU() Layer {
+	return &relu{}
+}
+
+func (r *relu) Init(inputShape Shape, _ OptimizerFactory) error {
 	r.inputShape = inputShape
 	r.outputShape = inputShape
 	return nil
 }
 
-func (r *ReLU) Call(inputs []*Tensor) []*Tensor {
+func (r *relu) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
 	wg := new(sync.WaitGroup)
 	wg.Add(len(inputs))
@@ -36,7 +41,7 @@ func (r *ReLU) Call(inputs []*Tensor) []*Tensor {
 	return outputs
 }
 
-func (r *ReLU) Forward(inputs []*Tensor) []*Tensor {
+func (r *relu) Forward(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
 	r.mask = make([][]bool, len(inputs))
 	wg := new(sync.WaitGroup)
@@ -58,7 +63,7 @@ func (r *ReLU) Forward(inputs []*Tensor) []*Tensor {
 	return outputs
 }
 
-func (r *ReLU) Backward(douts []*Tensor) []*Tensor {
+func (r *relu) Backward(douts []*Tensor) []*Tensor {
 	d := make([]*Tensor, len(douts))
 	wg := new(sync.WaitGroup)
 	wg.Add(len(douts))
@@ -77,18 +82,37 @@ func (r *ReLU) Backward(douts []*Tensor) []*Tensor {
 	return d
 }
 
-type Sigmoid struct {
-	BaseLayer
-	outputs []*Tensor
+func (r *relu) InputShape() Shape {
+	return r.inputShape
 }
 
-func (s *Sigmoid) Init(inputShape Shape, _ OptimizerFactory) error {
+func (r *relu) OutputShape() Shape {
+	return r.outputShape
+}
+
+func (r *relu) Params() []*Tensor {
+	return nil
+}
+
+func (r *relu) Update() {}
+
+type sigmoid struct {
+	inputShape  Shape
+	outputShape Shape
+	outputs     []*Tensor
+}
+
+func Sigmoid() Layer {
+	return &sigmoid{}
+}
+
+func (s *sigmoid) Init(inputShape Shape, _ OptimizerFactory) error {
 	s.inputShape = inputShape
 	s.outputShape = inputShape
 	return nil
 }
 
-func (s *Sigmoid) Call(inputs []*Tensor) []*Tensor {
+func (s *sigmoid) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
 	wg := new(sync.WaitGroup)
 	wg.Add(len(inputs))
@@ -104,7 +128,7 @@ func (s *Sigmoid) Call(inputs []*Tensor) []*Tensor {
 	return outputs
 }
 
-func (s *Sigmoid) Forward(inputs []*Tensor) []*Tensor {
+func (s *sigmoid) Forward(inputs []*Tensor) []*Tensor {
 	s.outputs = make([]*Tensor, len(inputs))
 	wg := new(sync.WaitGroup)
 	wg.Add(len(inputs))
@@ -120,7 +144,7 @@ func (s *Sigmoid) Forward(inputs []*Tensor) []*Tensor {
 	return s.outputs
 }
 
-func (s *Sigmoid) Backward(douts []*Tensor) []*Tensor {
+func (s *sigmoid) Backward(douts []*Tensor) []*Tensor {
 	d := make([]*Tensor, len(douts))
 	wg := new(sync.WaitGroup)
 	wg.Add(len(douts))
@@ -134,12 +158,31 @@ func (s *Sigmoid) Backward(douts []*Tensor) []*Tensor {
 	return d
 }
 
-type Softmax struct {
-	BaseLayer
-	outputs []*Tensor
+func (s *sigmoid) InputShape() Shape {
+	return s.inputShape
 }
 
-func (s *Softmax) Init(inputShape Shape, _ OptimizerFactory) error {
+func (s *sigmoid) OutputShape() Shape {
+	return s.outputShape
+}
+
+func (s *sigmoid) Params() []*Tensor {
+	return nil
+}
+
+func (s *sigmoid) Update() {}
+
+type softmax struct {
+	inputShape  Shape
+	outputShape Shape
+	outputs     []*Tensor
+}
+
+func Softmax() Layer {
+	return &softmax{}
+}
+
+func (s *softmax) Init(inputShape Shape, _ OptimizerFactory) error {
 	if inputShape.Rank() != 1 {
 		return fmt.Errorf("invalid rank %v", inputShape.Rank())
 	}
@@ -149,7 +192,7 @@ func (s *Softmax) Init(inputShape Shape, _ OptimizerFactory) error {
 	return nil
 }
 
-func (s *Softmax) Call(inputs []*Tensor) []*Tensor {
+func (s *softmax) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
 	wg := new(sync.WaitGroup)
 	wg.Add(len(inputs))
@@ -168,7 +211,7 @@ func (s *Softmax) Call(inputs []*Tensor) []*Tensor {
 	return outputs
 }
 
-func (s *Softmax) Forward(inputs []*Tensor) []*Tensor {
+func (s *softmax) Forward(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
 	wg := new(sync.WaitGroup)
 	wg.Add(len(inputs))
@@ -189,7 +232,7 @@ func (s *Softmax) Forward(inputs []*Tensor) []*Tensor {
 	return outputs
 }
 
-func (s *Softmax) Backward(douts []*Tensor) []*Tensor {
+func (s *softmax) Backward(douts []*Tensor) []*Tensor {
 	wg := new(sync.WaitGroup)
 	wg.Add(len(s.outputs))
 	for i, output := range s.outputs {
@@ -202,25 +245,44 @@ func (s *Softmax) Backward(douts []*Tensor) []*Tensor {
 	return douts
 }
 
-type Lambda struct {
-	Function        func(*Tensor) *Tensor
-	CalcOutputShape func(inputShape Shape) Shape
-	BaseLayer
+func (s *softmax) InputShape() Shape {
+	return s.inputShape
 }
 
-func (l *Lambda) Init(inputShape Shape, _ OptimizerFactory) error {
-	l.inputShape = inputShape
-	l.outputShape = l.CalcOutputShape(inputShape)
+func (s *softmax) OutputShape() Shape {
+	return s.outputShape
+}
+
+func (s *softmax) Params() []*Tensor {
 	return nil
 }
 
-func (l *Lambda) Call(inputs []*Tensor) []*Tensor {
+func (s *softmax) Update() {}
+
+type lambda struct {
+	function        func(*Tensor) *Tensor
+	calcOutputShape func(inputShape Shape) Shape
+	inputShape      Shape
+	outputShape     Shape
+}
+
+func Lambda(f func(*Tensor) *Tensor, outputShape func(inputShape Shape) Shape) Layer {
+	return &lambda{function: f, calcOutputShape: outputShape}
+}
+
+func (l *lambda) Init(inputShape Shape, _ OptimizerFactory) error {
+	l.inputShape = inputShape
+	l.outputShape = l.calcOutputShape(inputShape)
+	return nil
+}
+
+func (l *lambda) Call(inputs []*Tensor) []*Tensor {
 	outputs := make([]*Tensor, len(inputs))
 	wg := new(sync.WaitGroup)
 	wg.Add(len(inputs))
 	for i, input := range inputs {
 		go func(i int, input *Tensor) {
-			outputs[i] = l.Function(input)
+			outputs[i] = l.function(input)
 			wg.Done()
 		}(i, input)
 	}
@@ -228,10 +290,24 @@ func (l *Lambda) Call(inputs []*Tensor) []*Tensor {
 	return outputs
 }
 
-func (l *Lambda) Forward(inputs []*Tensor) []*Tensor {
+func (l *lambda) Forward(inputs []*Tensor) []*Tensor {
 	return l.Call(inputs)
 }
 
-func (l *Lambda) Backward(douts []*Tensor) []*Tensor {
+func (l *lambda) Backward(douts []*Tensor) []*Tensor {
 	return douts
 }
+
+func (l *lambda) InputShape() Shape {
+	return l.inputShape
+}
+
+func (l *lambda) OutputShape() Shape {
+	return l.outputShape
+}
+
+func (l *lambda) Params() []*Tensor {
+	return nil
+}
+
+func (l *lambda) Update() {}
