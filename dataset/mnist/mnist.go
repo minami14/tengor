@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	basedir  = "tengor/dataset/mnist/"
+	basedir        = "tengor/dataset/mnist/"
 	trainImagePath = basedir + trainImage
 	trainLabelPath = basedir + trainLabel
 	testImagePath  = basedir + testImage
@@ -41,8 +41,8 @@ func init() {
 	basedir = cache + "/" + basedir
 	trainImagePath = basedir + trainImage
 	trainLabelPath = basedir + trainLabel
-	testImagePath  = basedir + testImage
-	testLabelPath  = basedir + testLabel
+	testImagePath = basedir + testImage
+	testLabelPath = basedir + testLabel
 }
 
 // LoadImage loads mnist images from gzip file.
@@ -98,7 +98,7 @@ func LoadImage(path string) ([]*nn.Tensor, error) {
 				return nil, err
 			}
 
-			start+=n
+			start += n
 		}
 
 		data := make([]float64, size)
@@ -225,4 +225,9 @@ func Load() (xTrain, yTrain, xTest, yTest []*nn.Tensor, err error) {
 	}
 
 	return xTrain, yTrain, xTest, yTest, nil
+}
+
+// CacheClear deletes dataset files.
+func CacheClear() error {
+	return os.RemoveAll(basedir)
 }
