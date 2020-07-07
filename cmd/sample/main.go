@@ -12,6 +12,7 @@ const (
 	epochs    = 10
 	batchSize = 100
 	lr        = 0.1
+	momentum  = 0.9
 )
 
 func main() {
@@ -22,12 +23,13 @@ func main() {
 
 	inputShape := nn.Shape{28, 28}
 	model := nn.NewSequential(inputShape)
-	model.AddLayer(&nn.Flatten{})
-	model.AddLayer(&nn.Dense{Units: 64})
-	model.AddLayer(&nn.ReLU{})
-	model.AddLayer(&nn.Dense{Units: 10})
-	model.AddLayer(&nn.Softmax{})
-	if err := model.Build(&nn.CrossEntropyError{}, &nn.SGDFactory{LearningRate: lr}); err != nil {
+	model.AddLayer(nn.Flatten())
+	model.AddLayer(nn.Dense(64))
+	model.AddLayer(nn.ReLU())
+	model.AddLayer(nn.Dropout(0.5))
+	model.AddLayer(nn.Dense(10))
+	model.AddLayer(nn.Softmax())
+	if err := model.Build(nn.CrossEntropyError(), nn.MomentumSGD(lr, momentum)); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println(model.Summary())

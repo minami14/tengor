@@ -157,3 +157,8 @@ func Load() (xTrain, yTrain, xTest, yTest []*nn.Tensor, err error) {
 
 	return xTrain, yTrain, xTest, yTest, nil
 }
+
+// CacheClear deletes dataset files.
+func CacheClear() error {
+	return os.RemoveAll(basedir)
+}

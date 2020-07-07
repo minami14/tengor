@@ -17,12 +17,16 @@ func (s *sgd) Update(params, grads *Tensor) *Tensor {
 	return params
 }
 
-type SGDFactory struct {
-	LearningRate float64
+type sgdFactory struct {
+	lr float64
 }
 
-func (s *SGDFactory) Create(_ Shape) Optimizer {
-	return &sgd{lr: s.LearningRate}
+func (s *sgdFactory) Create(_ Shape) Optimizer {
+	return &sgd{lr: s.lr}
+}
+
+func SGD(lr float64) OptimizerFactory {
+	return &sgdFactory{lr}
 }
 
 type momentumSGD struct {
@@ -37,15 +41,26 @@ func (m *momentumSGD) Update(params, grads *Tensor) *Tensor {
 	return params
 }
 
-type MomentumSGDFactory struct {
-	LearningRate float64
-	Momentum     float64
+type momentumSGDFactory struct {
+	lr       float64
+	momentum float64
 }
 
-func (m *MomentumSGDFactory) Create(shape Shape) Optimizer {
+func (m *momentumSGDFactory) Create(shape Shape) Optimizer {
 	return &momentumSGD{
-		lr:       m.LearningRate,
-		momentum: m.Momentum,
+		lr:       m.lr,
+		momentum: m.momentum,
 		velocity: NewTensor(shape),
+	}
+}
+
+func MomentumSGD(lr, momentum float64) OptimizerFactory {
+	if momentum == 0 {
+		return SGD(lr)
+	}
+
+	return &momentumSGDFactory{
+		lr:       lr,
+		momentum: momentum,
 	}
 }
