@@ -6,6 +6,7 @@ import (
 	"sync"
 )
 
+// Layer is a layer of neural network.
 type Layer interface {
 	InputShape() Shape
 	OutputShape() Shape
@@ -67,6 +68,7 @@ type dense struct {
 	outputShape Shape
 }
 
+// Dense is a fully connected layer.
 func Dense(units int) Layer {
 	return &dense{units: units}
 }
@@ -169,6 +171,7 @@ type flatten struct {
 	outputShape Shape
 }
 
+// Flatten flattens the inputs.
 func Flatten() Layer {
 	return &flatten{}
 }
@@ -217,6 +220,7 @@ type dropout struct {
 	outputShape Shape
 }
 
+// Dropout dropouts inputs.
 func Dropout(rate float64) Layer {
 	return &dropout{rate: rate}
 }
@@ -275,3 +279,57 @@ func (d *dropout) Params() []*Tensor {
 }
 
 func (d *dropout) Update() {}
+
+type lambda struct {
+	function        func(*Tensor) *Tensor
+	calcOutputShape func(inputShape Shape) Shape
+	inputShape      Shape
+	outputShape     Shape
+}
+
+// Lambda is a user defined function layer.
+func Lambda(f func(*Tensor) *Tensor, outputShape func(inputShape Shape) Shape) Layer {
+	return &lambda{function: f, calcOutputShape: outputShape}
+}
+
+func (l *lambda) Init(inputShape Shape, _ OptimizerFactory) error {
+	l.inputShape = inputShape
+	l.outputShape = l.calcOutputShape(inputShape)
+	return nil
+}
+
+func (l *lambda) Call(inputs []*Tensor) []*Tensor {
+	outputs := make([]*Tensor, len(inputs))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(inputs))
+	for i, input := range inputs {
+		go func(i int, input *Tensor) {
+			outputs[i] = l.function(input)
+			wg.Done()
+		}(i, input)
+	}
+	wg.Wait()
+	return outputs
+}
+
+func (l *lambda) Forward(inputs []*Tensor) []*Tensor {
+	return l.Call(inputs)
+}
+
+func (l *lambda) Backward(douts []*Tensor) []*Tensor {
+	return douts
+}
+
+func (l *lambda) InputShape() Shape {
+	return l.inputShape
+}
+
+func (l *lambda) OutputShape() Shape {
+	return l.outputShape
+}
+
+func (l *lambda) Params() []*Tensor {
+	return nil
+}
+
+func (l *lambda) Update() {}

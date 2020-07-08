@@ -1,9 +1,11 @@
 package nn
 
+// Optimizer updates parameters.
 type Optimizer interface {
 	Update(params, grads *Tensor) *Tensor
 }
 
+// OptimizerFactory creates optimizer.
 type OptimizerFactory interface {
 	Create(Shape) Optimizer
 }
@@ -25,6 +27,7 @@ func (s *sgdFactory) Create(_ Shape) Optimizer {
 	return &sgd{lr: s.lr}
 }
 
+// SGD is stochastic gradient descent.
 func SGD(lr float64) OptimizerFactory {
 	return &sgdFactory{lr}
 }
@@ -54,6 +57,7 @@ func (m *momentumSGDFactory) Create(shape Shape) Optimizer {
 	}
 }
 
+// MomentumSGD is an optimizer that add momentum to SGD
 func MomentumSGD(lr, momentum float64) OptimizerFactory {
 	if momentum == 0 {
 		return SGD(lr)

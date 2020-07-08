@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/minami14/tengor/nn"
 )
@@ -122,10 +121,6 @@ func Load() (xTrain, yTrain, xTest, yTest []*nn.Tensor, err error) {
 				break
 			}
 			return nil, nil, nil, nil, err
-		}
-
-		if !strings.Contains(header.Name, ".bin") {
-			continue
 		}
 
 		switch header.Name {

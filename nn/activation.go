@@ -12,6 +12,7 @@ type relu struct {
 	mask        [][]bool
 }
 
+// ReLu is an activation function layer.
 func ReLU() Layer {
 	return &relu{}
 }
@@ -102,6 +103,7 @@ type sigmoid struct {
 	outputs     []*Tensor
 }
 
+// Sigmoid is an activation function layer.
 func Sigmoid() Layer {
 	return &sigmoid{}
 }
@@ -178,6 +180,7 @@ type softmax struct {
 	outputs     []*Tensor
 }
 
+// Sofmax is an activation function layer.
 func Softmax() Layer {
 	return &softmax{}
 }
@@ -258,56 +261,3 @@ func (s *softmax) Params() []*Tensor {
 }
 
 func (s *softmax) Update() {}
-
-type lambda struct {
-	function        func(*Tensor) *Tensor
-	calcOutputShape func(inputShape Shape) Shape
-	inputShape      Shape
-	outputShape     Shape
-}
-
-func Lambda(f func(*Tensor) *Tensor, outputShape func(inputShape Shape) Shape) Layer {
-	return &lambda{function: f, calcOutputShape: outputShape}
-}
-
-func (l *lambda) Init(inputShape Shape, _ OptimizerFactory) error {
-	l.inputShape = inputShape
-	l.outputShape = l.calcOutputShape(inputShape)
-	return nil
-}
-
-func (l *lambda) Call(inputs []*Tensor) []*Tensor {
-	outputs := make([]*Tensor, len(inputs))
-	wg := new(sync.WaitGroup)
-	wg.Add(len(inputs))
-	for i, input := range inputs {
-		go func(i int, input *Tensor) {
-			outputs[i] = l.function(input)
-			wg.Done()
-		}(i, input)
-	}
-	wg.Wait()
-	return outputs
-}
-
-func (l *lambda) Forward(inputs []*Tensor) []*Tensor {
-	return l.Call(inputs)
-}
-
-func (l *lambda) Backward(douts []*Tensor) []*Tensor {
-	return douts
-}
-
-func (l *lambda) InputShape() Shape {
-	return l.inputShape
-}
-
-func (l *lambda) OutputShape() Shape {
-	return l.outputShape
-}
-
-func (l *lambda) Params() []*Tensor {
-	return nil
-}
-
-func (l *lambda) Update() {}
