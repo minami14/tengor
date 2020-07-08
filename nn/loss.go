@@ -2,6 +2,7 @@ package nn
 
 import "sync"
 
+// Loss is a loss function of a neural network.
 type Loss interface {
 	Call(y, t []*Tensor) float64
 	Forward(y, t []*Tensor) float64
@@ -13,6 +14,7 @@ type crossEntropyError struct {
 	t []*Tensor
 }
 
+// CrossEntropyError is a loss function.
 func CrossEntropyError() Loss {
 	return &crossEntropyError{}
 }
@@ -25,7 +27,7 @@ func (c *crossEntropyError) Call(y, t []*Tensor) float64 {
 	mutex := new(sync.Mutex)
 	for i := 0; i < len(t); i++ {
 		go func(i int) {
-			d := - y[i].AddBroadCast(delta).Log().MulTensor(t[i]).Sum()
+			d := -y[i].AddBroadCast(delta).Log().MulTensor(t[i]).Sum()
 			mutex.Lock()
 			sum += d
 			mutex.Unlock()
@@ -48,7 +50,7 @@ func (c *crossEntropyError) Forward(y, t []*Tensor) float64 {
 		go func(i int) {
 			c.y[i] = y[i].Clone()
 			c.t[i] = t[i].Clone()
-			d := - y[i].AddBroadCast(delta).Log().MulTensor(t[i]).Sum()
+			d := -y[i].AddBroadCast(delta).Log().MulTensor(t[i]).Sum()
 			mutex.Lock()
 			sum += d
 			mutex.Unlock()

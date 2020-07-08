@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/minami14/tengor/nn"
@@ -123,32 +124,24 @@ func Load() (xTrain, yTrain, xTest, yTest []*nn.Tensor, err error) {
 			return nil, nil, nil, nil, err
 		}
 
-		if !strings.Contains(header.Name, ".bin") {
-			continue
-		}
+		name := header.Name
+		trainPrefix := "cifar-10-batches-bin/data_batch_"
+		testName := "cifar-10-batches-bin/test_batch.bin"
+		suffix := ".bin"
+		switch {
+		case strings.HasPrefix(name, trainPrefix):
+			numStr := name[len(trainPrefix) : len(name)-len(suffix)]
+			n, err := strconv.Atoi(numStr)
+			if err != nil {
+				return nil, nil, nil, nil, err
+			}
 
-		switch header.Name {
-		case "cifar-10-batches-bin/data_batch_1.bin":
-			if err := read(xTrain[:10000], yTrain[:10000], reader); err != nil {
+			start := (n - 1) * 10000
+			end := start + 10000
+			if err := read(xTrain[start:end], yTrain[start:end], reader); err != nil {
 				return nil, nil, nil, nil, err
 			}
-		case "cifar-10-batches-bin/data_batch_2.bin":
-			if err := read(xTrain[10000:20000], yTrain[10000:20000], reader); err != nil {
-				return nil, nil, nil, nil, err
-			}
-		case "cifar-10-batches-bin/data_batch_3.bin":
-			if err := read(xTrain[20000:30000], yTrain[20000:30000], reader); err != nil {
-				return nil, nil, nil, nil, err
-			}
-		case "cifar-10-batches-bin/data_batch_4.bin":
-			if err := read(xTrain[30000:40000], yTrain[30000:40000], reader); err != nil {
-				return nil, nil, nil, nil, err
-			}
-		case "cifar-10-batches-bin/data_batch_5.bin":
-			if err := read(xTrain[40000:50000], yTrain[40000:50000], reader); err != nil {
-				return nil, nil, nil, nil, err
-			}
-		case "cifar-10-batches-bin/test_batch.bin":
+		case strings.HasPrefix(name, testName):
 			if err := read(xTest, yTest, reader); err != nil {
 				return nil, nil, nil, nil, err
 			}
