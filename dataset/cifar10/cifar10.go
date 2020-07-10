@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -24,8 +25,8 @@ const (
 )
 
 var (
-	basedir  = "tengor/dataset/cifar10/"
-	filepath = basedir + filename
+	basedir = "tengor/dataset/cifar10/"
+	path    = filepath.Join(basedir, filename)
 )
 
 func init() {
@@ -34,8 +35,8 @@ func init() {
 		return
 	}
 
-	basedir = cache + "/" + basedir
-	filepath = basedir + filename
+	basedir = filepath.Join(cache, basedir)
+	path = filepath.Join(basedir + filename)
 }
 
 func download() error {
@@ -51,7 +52,7 @@ func download() error {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	f, err := os.Create(filepath)
+	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
@@ -93,13 +94,13 @@ func read(x, y []*nn.Tensor, reader io.Reader) error {
 
 // Load downloads and loads cifar10 dataset.
 func Load() (xTrain, yTrain, xTest, yTest []*nn.Tensor, err error) {
-	if _, err := os.Stat(filepath); os.IsNotExist(err) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
 		if err := download(); err != nil {
 			return nil, nil, nil, nil, err
 		}
 	}
 
-	f, err := os.Open(filepath)
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
