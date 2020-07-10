@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/minami14/tengor/nn"
 )
@@ -26,10 +27,10 @@ const (
 
 var (
 	basedir        = "tengor/dataset/mnist/"
-	trainImagePath = basedir + trainImage
-	trainLabelPath = basedir + trainLabel
-	testImagePath  = basedir + testImage
-	testLabelPath  = basedir + testLabel
+	trainImagePath = filepath.Join(basedir, trainImage)
+	trainLabelPath = filepath.Join(basedir, trainLabel)
+	testImagePath  = filepath.Join(basedir, testImage)
+	testLabelPath  = filepath.Join(basedir, testLabel)
 )
 
 func init() {
@@ -38,11 +39,11 @@ func init() {
 		return
 	}
 
-	basedir = cache + "/" + basedir
-	trainImagePath = basedir + trainImage
-	trainLabelPath = basedir + trainLabel
-	testImagePath = basedir + testImage
-	testLabelPath = basedir + testLabel
+	basedir = filepath.Join(cache, basedir)
+	trainImagePath = filepath.Join(basedir, trainImage)
+	trainLabelPath = filepath.Join(basedir, trainLabel)
+	testImagePath = filepath.Join(basedir, testImage)
+	testLabelPath = filepath.Join(basedir, testLabel)
 }
 
 // LoadImage loads mnist images from gzip file.
