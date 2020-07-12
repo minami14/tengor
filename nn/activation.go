@@ -12,7 +12,7 @@ type relu struct {
 	mask        [][]bool
 }
 
-// ReLu is an activation function layer.
+// ReLU is an activation function layer.
 func ReLU() Layer {
 	return &relu{}
 }
@@ -180,7 +180,7 @@ type softmax struct {
 	outputs     []*Tensor
 }
 
-// Sofmax is an activation function layer.
+// Softmax is an activation function layer.
 func Softmax() Layer {
 	return &softmax{}
 }
