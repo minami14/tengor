@@ -1,7 +1,9 @@
 package nn
 
+// Shape is a shape of a tensor.
 type Shape []int
 
+// RawIndex is a index of raw data.
 func (s Shape) RawIndex(at Shape) int {
 	if s.Rank() != at.Rank() {
 		panic("invalid rank")
@@ -21,6 +23,7 @@ func (s Shape) RawIndex(at Shape) int {
 	return index
 }
 
+// Clone clones a shape.
 func (s Shape) Clone() Shape {
 	clone := make(Shape, len(s))
 	for i, d := range s {
@@ -29,10 +32,12 @@ func (s Shape) Clone() Shape {
 	return clone
 }
 
+// Rank is rank of a tensor.
 func (s Shape) Rank() int {
 	return len(s)
 }
 
+// Elements is a number of elements that tensor has.
 func (s Shape) Elements() int {
 	e := 1
 	for _, i := range s {
@@ -42,6 +47,7 @@ func (s Shape) Elements() int {
 	return e
 }
 
+// Equal compares two shapes.
 func (s Shape) Equal(shape Shape) bool {
 	if len(s) != len(shape) {
 		return false
